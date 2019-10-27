@@ -58,6 +58,7 @@ public @interface EnableFeignClients {
 	 * package names.
 	 * @return the array of 'basePackages'.
 	 */
+	//规定了扫描的基础包位置
 	String[] basePackages() default {};
 
 	/**
@@ -78,6 +79,11 @@ public @interface EnableFeignClients {
 	 * @see FeignClientsConfiguration for the defaults
 	 * @return list of default configurations
 	 */
+	//所有 feign客户端的自定义 Configuration 配置类。其中可以包含组成feign客户端的组成部分的bean定义
+	//比如 Decoder和 Encoder、Contract
+	//如果@EnableFeignClients注解有  配置defaultConfiguration属性，
+	// 则获取bean 构造FeignClientSpecification类注册到spring中，
+	// 之后所有的 FeignClientSpecification类会被读取到 FeignAutoConfiguration中并解析
 	Class<?>[] defaultConfiguration() default {};
 
 	/**
@@ -85,6 +91,7 @@ public @interface EnableFeignClients {
 	 * scanning.
 	 * @return list of FeignClient classes
 	 */
+	////值类型：Class<?>[]规定了扫描带有@FeignClient注解的指定类全路径Class的集合（如果设置了本属性，包扫描功能就没有用了）
 	Class<?>[] clients() default {};
 
 }

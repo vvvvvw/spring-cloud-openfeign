@@ -58,14 +58,17 @@ import org.springframework.util.StringUtils;
  * @author Venil Noronha
  * @author Gang Li
  */
+//扫描@Feign注解的接口，构造成FeignClient并注册到spring中
 class FeignClientsRegistrar
 		implements ImportBeanDefinitionRegistrar, ResourceLoaderAware, EnvironmentAware {
 
 	// patterned after Spring Integration IntegrationComponentScanRegistrar
 	// and RibbonClientsConfigurationRegistgrar
 
+	//// 资源加载器，可通过该资源加载器加载classpath下的所有文件
 	private ResourceLoader resourceLoader;
 
+	//// 上下文环境，可通过该环境获取当前应用配置属性等
 	private Environment environment;
 
 	FeignClientsRegistrar() {
@@ -132,20 +135,27 @@ class FeignClientsRegistrar
 		return path;
 	}
 
+	// 2. 初始化资源加载器属性
 	@Override
 	public void setResourceLoader(ResourceLoader resourceLoader) {
 		this.resourceLoader = resourceLoader;
 	}
 
+	// 3. 最重要的一个来了，注册bean定义
 	@Override
 	public void registerBeanDefinitions(AnnotationMetadata metadata,
 			BeanDefinitionRegistry registry) {
+		// 注册默认配置
 		registerDefaultConfiguration(metadata, registry);
+		// 注册Feign client 工厂类 FeignClientFactoryBean
 		registerFeignClients(metadata, registry);
 	}
 
+	// 如果@EnableFeignClients注解有  配置defaultConfiguration属性，则获取bean 构造FeignClientSpecification类注册到spring中，之后所有的 FeignClientSpecification类会被读取到 FeignAutoConfiguration中并解析
+	//默认name为default
 	private void registerDefaultConfiguration(AnnotationMetadata metadata,
 			BeanDefinitionRegistry registry) {
+		//获取 @EnableFeignClients 注解属性中配置的 feign 客户端的默认 配置类
 		Map<String, Object> defaultAttrs = metadata
 				.getAnnotationAttributes(EnableFeignClients.class.getName(), true);
 
@@ -164,22 +174,29 @@ class FeignClientsRegistrar
 
 	public void registerFeignClients(AnnotationMetadata metadata,
 			BeanDefinitionRegistry registry) {
+		// 获取ClassPath扫描器
 		ClassPathScanningCandidateComponentProvider scanner = getScanner();
+		// 为扫描器设置资源加载器
 		scanner.setResourceLoader(this.resourceLoader);
 
 		Set<String> basePackages;
 
+		// 1. 从@EnableFeignClients注解中获取到配置的各个属性值
 		Map<String, Object> attrs = metadata
 				.getAnnotationAttributes(EnableFeignClients.class.getName());
+		// 2. 注解类型过滤器，只过滤@FeignClient
 		AnnotationTypeFilter annotationTypeFilter = new AnnotationTypeFilter(
 				FeignClient.class);
+		// 3. 从1. 中的属性值中获取clients属性的值
 		final Class<?>[] clients = attrs == null ? null
 				: (Class<?>[]) attrs.get("clients");
 		if (clients == null || clients.length == 0) {
+			// 扫描器设置过滤器且获取需要扫描的基础包集合
 			scanner.addIncludeFilter(annotationTypeFilter);
 			basePackages = getBasePackages(metadata);
 		}
 		else {
+			// clients属性值不为null，则将其clazz路径转为包路径
 			final Set<String> clientClasses = new HashSet<>();
 			basePackages = new HashSet<>();
 			for (Class<?> clazz : clients) {
@@ -197,10 +214,13 @@ class FeignClientsRegistrar
 					new AllTypeFilter(Arrays.asList(filter, annotationTypeFilter)));
 		}
 
+		// 3. 扫描基础包，且满足过滤条件下的接口封装成BeanDefinition
 		for (String basePackage : basePackages) {
 			Set<BeanDefinition> candidateComponents = scanner
 					.findCandidateComponents(basePackage);
+			// 遍历扫描到的bean定义
 			for (BeanDefinition candidateComponent : candidateComponents) {
+				// 并校验扫描到的bean定义类是一个接口
 				if (candidateComponent instanceof AnnotatedBeanDefinition) {
 					// verify annotated class is an interface
 					AnnotatedBeanDefinition beanDefinition = (AnnotatedBeanDefinition) candidateComponent;
@@ -208,29 +228,36 @@ class FeignClientsRegistrar
 					Assert.isTrue(annotationMetadata.isInterface(),
 							"@FeignClient can only be specified on an interface");
 
+					// 获取@FeignClient注解上的各个属性值
 					Map<String, Object> attributes = annotationMetadata
 							.getAnnotationAttributes(
 									FeignClient.class.getCanonicalName());
 
+					////获取client名字，优先级： contextId > value>name>serviceId
 					String name = getClientName(attributes);
+					// 如果 可以看到这里也注册了一个专属于对应feign client的FeignClientSpecification  bean
 					registerClientConfiguration(registry, name,
 							attributes.get("configuration"));
 
+					// 注册 feign工厂bean定义到spring中
 					registerFeignClient(registry, annotationMetadata, attributes);
 				}
 			}
 		}
 	}
 
+	//注册工厂类
 	private void registerFeignClient(BeanDefinitionRegistry registry,
 			AnnotationMetadata annotationMetadata, Map<String, Object> attributes) {
 		String className = annotationMetadata.getClassName();
+		//feign将所有的feignClient bean定义的类型包装成 FeignClientFactoryBean
 		BeanDefinitionBuilder definition = BeanDefinitionBuilder
 				.genericBeanDefinition(FeignClientFactoryBean.class);
 		validate(attributes);
 		definition.addPropertyValue("url", getUrl(attributes));
 		definition.addPropertyValue("path", getPath(attributes));
 		String name = getName(attributes);
+		// 获取@FeignClient注解中指定的name
 		definition.addPropertyValue("name", name);
 		String contextId = getContextId(attributes);
 		definition.addPropertyValue("contextId", contextId);
@@ -358,6 +385,7 @@ class FeignClientsRegistrar
 		return null;
 	}
 
+	//获取client名字，优先级： contextId > value>name>serviceId
 	private String getClientName(Map<String, Object> client) {
 		if (client == null) {
 			return null;
@@ -380,6 +408,7 @@ class FeignClientsRegistrar
 				+ FeignClient.class.getSimpleName());
 	}
 
+	//注册 FeignClientSpecification类 到spring中
 	private void registerClientConfiguration(BeanDefinitionRegistry registry, Object name,
 			Object configuration) {
 		BeanDefinitionBuilder builder = BeanDefinitionBuilder
@@ -391,6 +420,7 @@ class FeignClientsRegistrar
 				builder.getBeanDefinition());
 	}
 
+	// 1. 初始化当前上下文环境属性
 	@Override
 	public void setEnvironment(Environment environment) {
 		this.environment = environment;

@@ -25,10 +25,13 @@ import org.springframework.cloud.context.named.NamedContextFactory;
  * @author Dave Syer
  * @author Gregor Zurowski
  */
+//feign 配置类
 class FeignClientSpecification implements NamedContextFactory.Specification {
 
+	// ${feign client的名字}.FeignClientSpecification    ，默认配置为default.FeignClientSpecification
 	private String name;
 
+	// feign client 配置类
 	private Class<?>[] configuration;
 
 	FeignClientSpecification() {

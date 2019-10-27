@@ -49,6 +49,7 @@ import org.springframework.util.StringUtils;
  * @author Eko Kurniawan Khannedy
  * @author Gregor Zurowski
  */
+//feign client工厂类
 class FeignClientFactoryBean
 		implements FactoryBean<Object>, InitializingBean, ApplicationContextAware {
 
@@ -221,6 +222,7 @@ class FeignClientFactoryBean
 	}
 
 	protected <T> T get(FeignContext context, Class<T> type) {
+		//从 ApplicationContext中获取 指定类型 的bean
 		T instance = context.getInstance(this.contextId, type);
 		if (instance == null) {
 			throw new IllegalStateException(
@@ -235,6 +237,7 @@ class FeignClientFactoryBean
 
 	protected <T> T loadBalance(Feign.Builder builder, FeignContext context,
 			HardCodedTarget<T> target) {
+		// 获取 feign.Client 类型 作为真实使用的客户端
 		Client client = getOptional(context, Client.class);
 		if (client != null) {
 			builder.client(client);
