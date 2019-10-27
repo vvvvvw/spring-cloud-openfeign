@@ -144,6 +144,7 @@ class FeignClientFactoryBean
 		if (options != null) {
 			builder.options(options);
 		}
+		//todo 这边的 拦截器配置 应该是没有管顺序的,其他地方的配置 是有顺序的，因此如果需要顺序就不要从 spring bean中获取 RequestInterceptor
 		Map<String, RequestInterceptor> requestInterceptors = context
 				.getInstances(this.contextId, RequestInterceptor.class);
 		if (requestInterceptors != null) {
